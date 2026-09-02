@@ -1,7 +1,7 @@
 {
   "name": "NGABRET Seller Center",
   "short_name": "Ngabret",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0E1116",
   "theme_color": "#db2777",
