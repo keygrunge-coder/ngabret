@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SR FOOTWEAR · Bedah SKU Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-hover: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --primary: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #f43f5e;
+            --info: #3b82f6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .header-title h1 { font-size: 1.5em; font-weight: 700; }
+        .header-title span { color: var(--text-muted); font-size: 0.9em; }
+        .header-actions { display: flex; gap: 10px; }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-main);
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: var(--bg-hover); }
+        .btn-primary { background: var(--primary); border-color: var(--primary); }
+        .btn-primary:hover { background: #4f46e5; }
+
+        /* CARDS */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .card-label { color: var(--text-muted); font-size: 0.85em; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card-value { font-size: 1.8em; font-weight: 700; }
+        .card-value.success { color: var(--success); }
+        .card-value.warning { color: var(--warning); }
+        .card-value.danger { color: var(--danger); }
+
+        /* PERFORMANCE CARDS */
+        .perf-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .perf-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid;
+        }
+        .perf-card.top { border-color: var(--success); }
+        .perf-card.medium { border-color: var(--warning); }
+        .perf-card.low { border-color: var(--danger); }
+        .perf-card.new { border-color: var(--info); }
+        .perf-title { font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
+        .perf-desc { color: var(--text-muted); font-size: 0.85em; }
+
+        /* FILTERS */
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-main);
+            font-size: 0.95em;
+        }
+        .search-box:focus { outline: none; border-color: var(--primary); }
+        .filter-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* MAIN CONTENT */
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 1024px) { .main-content { grid-template-columns: 1fr; } }
+
+        /* ACCORDION LIST */
+        .accordion-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .accordion-header {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+            gap: 15px;
+        }
+        .accordion-header:hover { background: var(--bg-hover); }
+        .copy-icon {
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+        .copy-icon:hover { color: var(--primary); border-color: var(--primary); }
+        .model-info { flex: 1; }
+        .model-name { font-weight: 600; font-size: 0.95em; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
+        .model-stats { font-size: 0.85em; color: var(--text-muted); }
+        .model-total { text-align: right; }
+        .model-total .qty { font-weight: 700; font-size: 1.1em; color: var(--success); }
+        .model-total .gmv { font-size: 0.85em; color: var(--text-muted); }
+        
+        .accordion-body {
+            display: none;
+            padding: 20px;
+            background: var(--bg-main);
+            border-bottom: 1px solid var(--border);
+        }
+        .accordion-body.show { display: block; }
+        .variant-list { list-style: none; }
+        .variant-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9em;
+        }
+        .variant-item:last-child { border-bottom: none; }
+        .variant-name { color: var(--text-main); font-weight: 500; }
+        .variant-stats { color: var(--text-muted); font-size: 0.85em; margin-top: 2px; }
+        .variant-qty { font-weight: 700; color: var(--primary); background: var(--bg-card); padding: 4px 12px; border-radius: 6px; }
+
+        /* CHARTS */
+        .chart-container {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        .chart-title { font-weight: 700; margin-bottom: 15px; font-size: 1.1em; }
+        .chart-box { position: relative; height: 250px; }
+
+        /* HIGHLIGHT */
+        .highlight-box {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .highlight-title { color: var(--primary); font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .highlight-text { color: var(--text-muted); font-size: 0.9em; line-height: 1.6; }
+
+        /* UPLOAD MODAL */
+        .upload-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+        .upload-box {
+            background: var(--bg-card);
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            border: 2px dashed var(--border);
+            max-width: 500px;
+            width: 90%;
+        }
+        .upload-box h2 { margin-bottom: 15px; }
+        .upload-box p { color: var(--text-muted); margin-bottom: 25px; }
+        .file-input { display: none; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- UPLOAD OVERLAY -->
+    <div class="upload-overlay" id="uploadOverlay">
+        <div class="upload-box">
+            <h2>📊 Bedah SKU Dashboard</h2>
+            <p>Upload file export SKU TikTok Seller Center (.xlsx) untuk memulai analisis.</p>
+            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Pilih File Excel</button>
+            <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" onchange="handleFile(this)">
+        </div>
+    </div>
+
+    <div class="container" id="dashboard" style="display: none;">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-title">
+                <h1>SR FOOTWEAR · Bedah SKU</h1>
+                <span id="dataInfo">Memuat data...</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn" onclick="exportCSV()">Export CSV</button>
+                <button class="btn" onclick="resetData()">Reset</button>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput2').click()">Upload XLSX</button>
+                <input type="file" id="fileInput2" class="file-input" accept=".xlsx,.xls" onchange="handleFile(this)">
+            </div>
+        </div>
+
+        <!-- SUMMARY CARDS -->
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-label">Total GMV</div>
+                <div class="card-value success" id="totalGMV">Rp0</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Total Terjual</div>
+                <div class="card-value" id="totalSold">0</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Total Pesanan</div>
+                <div class="card-value" id="totalOrders">0</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Varian Aktif</div>
+                <div class="card-value" id="totalVariants">0</div>
+            </div>
+        </div>
+
+        <!-- PERFORMANCE CARDS -->
+        <div class="perf-grid">
+            <div class="perf-card top">
+                <div class="perf-title"> TOP PERFORMER</div>
+                <div class="perf-desc" id="perfTop">0 Model (>100 pcs)</div>
+            </div>
+            <div class="perf-card medium">
+                <div class="perf-title">⚡ MEDIUM</div>
+                <div class="perf-desc" id="perfMed">0 Model (20-99 pcs)</div>
+            </div>
+            <div class="perf-card low">
+                <div class="perf-title">📉 LOW</div>
+                <div class="perf-desc" id="perfLow">0 Model (<20 pcs)</div>
+            </div>
+            <div class="perf-card new">
+                <div class="perf-title"> NEW PRODUCT</div>
+                <div class="perf-desc" id="perfNew">0 Model (Rasio tinggi)</div>
+            </div>
+        </div>
+
+        <!-- FILTERS -->
+        <div class="filters">
+            <input type="text" class="search-box" id="searchBox" placeholder="Cari model produk..." oninput="filterData()">
+            <button class="filter-btn active" onclick="setFilter('all', this)">Semua</button>
+            <button class="filter-btn" onclick="setFilter('top', this)">Top</button>
+            <button class="filter-btn" onclick="setFilter('medium', this)">Medium</button>
+            <button class="filter-btn" onclick="setFilter('low', this)">Low</button>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- LEFT: ACCORDION -->
+            <div>
+                <div class="accordion-container" id="accordionList">
+                    <!-- Dynamic Content -->
+                </div>
+            </div>
+
+            <!-- RIGHT: CHARTS & HIGHLIGHT -->
+            <div>
+                <div class="highlight-box">
+                    <div class="highlight-title">🎯 SOROTAN DATA</div>
+                    <div class="highlight-text" id="highlightText">Upload data untuk melihat insight.</div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Distribusi Warna</div>
+                    <div class="chart-box"><canvas id="colorChart"></canvas></div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Distribusi Ukuran</div>
+                    <div class="chart-box"><canvas id="sizeChart"></canvas></div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Top 5 Model</div>
+                    <div class="chart-box"><canvas id="modelChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let rawData = [];
+        let processedData = [];
+        let currentFilter = 'all';
+        let charts = {};
+
+        // --- FILE HANDLING ---
+        function handleFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+                
+                parseData(jsonData);
+                document.getElementById('uploadOverlay').classList.add('hidden');
+                document.getElementById('dashboard').style.display = 'block';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseData(jsonData) {
+            rawData = [];
+            // Skip header rows (usually first 2-3 rows in TikTok export)
+            for (let i = 2; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (row && row.length >= 7 && row[2]) {
+                    const productName = row[2];
+                    const parts = productName.split(':');
+                    if (parts.length >= 2) {
+                        const model = parts[0].trim();
+                        const variantStr = parts[1].trim();
+                        const variantParts = variantStr.split('/').map(s => s.trim());
+                        
+                        rawData.push({
+                            skuId: row[0],
+                            productId: row[1],
+                            model: model,
+                            variant: variantStr,
+                            color: variantParts[0] || 'Lainnya',
+                            size: variantParts[variantParts.length - 1] || 'Lainnya',
+                            gmv: parseCurrency(row[4]),
+                            orders: parseInt(row[5]) || 0,
+                            sold: parseInt(row[6]) || 0
+                        });
+                    }
+                }
+            }
+            processData();
+        }
+
+        function parseCurrency(val) {
+            if (typeof val === 'string') return parseInt(val.replace(/[^\d]/g, '')) || 0;
+            return parseInt(val) || 0;
+        }
+
+        // --- DATA PROCESSING ---
+        function processData() {
+            const grouped = {};
+            let totalGMV = 0, totalSold = 0, totalOrders = 0;
+            const colorCount = {}, sizeCount = {};
+
+            rawData.forEach(item => {
+                totalGMV += item.gmv;
+                totalSold += item.sold;
+                totalOrders += item.orders;
+
+                // Color/Size aggregation
+                const c = item.color.toLowerCase();
+                const s = item.size;
+                colorCount[c] = (colorCount[c] || 0) + item.sold;
+                sizeCount[s] = (sizeCount[s] || 0) + item.sold;
+
+                // Group by Product ID
+                if (!grouped[item.productId]) {
+                    grouped[item.productId] = {
+                        id: item.productId,
+                        model: item.model,
+                        variants: [],
+                        totalGMV: 0,
+                        totalSold: 0,
+                        totalOrders: 0
+                    };
+                }
+                grouped[item.productId].variants.push(item);
+                grouped[item.productId].totalGMV += item.gmv;
+                grouped[item.productId].totalSold += item.sold;
+                grouped[item.productId].totalOrders += item.orders;
+            });
+
+            processedData = Object.values(grouped).sort((a, b) => b.totalSold - a.totalSold);
+            
+            // Update UI
+            document.getElementById('dataInfo').textContent = `${rawData.length} Varian · ${processedData.length} Model · Data berhasil dimuat`;
+            document.getElementById('totalGMV').textContent = formatRupiah(totalGMV);
+            document.getElementById('totalSold').textContent = totalSold.toLocaleString('id-ID');
+            document.getElementById('totalOrders').textContent = totalOrders.toLocaleString('id-ID');
+            document.getElementById('totalVariants').textContent = rawData.length;
+
+            // Performance Cards
+            const top = processedData.filter(m => m.totalSold > 100).length;
+            const med = processedData.filter(m => m.totalSold >= 20 && m.totalSold <= 100).length;
+            const low = processedData.filter(m => m.totalSold < 20).length;
+            document.getElementById('perfTop').textContent = `${top} Model (>100 pcs)`;
+            document.getElementById('perfMed').textContent = `${med} Model (20-99 pcs)`;
+            document.getElementById('perfLow').textContent = `${low} Model (<20 pcs)`;
+            document.getElementById('perfNew').textContent = `${processedData.length} Total Model`;
+
+            // Highlight
+            const topColor = Object.entries(colorCount).sort((a,b) => b[1]-a[1])[0];
+            const topSize = Object.entries(sizeCount).sort((a,b) => b[1]-a[1])[0];
+            document.getElementById('highlightText').innerHTML = `
+                Warna paling laku: <strong style="color:var(--success)">${topColor[0].toUpperCase()}</strong> (${topColor[1]} pcs).<br>
+                Ukuran paling dicari: <strong style="color:var(--success)">${topSize[0]}</strong> (${topSize[1]} pcs).<br>
+                Rekomendasi: Fokus restock warna ${topColor[0]} ukuran ${topSize[0]}.
+            `;
+
+            renderAccordion();
+            renderCharts(colorCount, sizeCount);
+        }
+
+        // --- RENDERING ---
+        function renderAccordion() {
+            const container = document.getElementById('accordionList');
+            container.innerHTML = '';
+            const search = document.getElementById('searchBox').value.toLowerCase();
+
+            processedData.forEach(model => {
+                if (currentFilter !== 'all') {
+                    if (currentFilter === 'top' && model.totalSold <= 100) return;
+                    if (currentFilter === 'medium' && (model.totalSold < 20 || model.totalSold > 100)) return;
+                    if (currentFilter === 'low' && model.totalSold >= 20) return;
+                }
+                if (search && !model.model.toLowerCase().includes(search)) return;
+
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <button class="copy-icon" onclick="event.stopPropagation(); copyId('${model.id}')">📋 ${model.id.slice(-6)}</button>
+                        <div class="model-info">
+                            <div class="model-name" title="${model.model}">${model.model}</div>
+                            <div class="model-stats">${model.variants.length} varian · ${model.totalOrders} pesanan</div>
+                        </div>
+                        <div class="model-total">
+                            <div class="qty">${model.totalSold} pcs</div>
+                            <div class="gmv">${formatRupiah(model.totalGMV)}</div>
+                        </div>
+                    </div>
+                    <div class="accordion-body">
+                        <ul class="variant-list">
+                            ${model.variants.sort((a,b) => b.sold - a.sold).map(v => `
+                                <li class="variant-item">
+                                    <div>
+                                        <div class="variant-name">↳ ${v.variant}</div>
+                                        <div class="variant-stats">${v.orders} pesanan · ${formatRupiah(v.gmv)}</div>
+                                    </div>
+                                    <div class="variant-qty">${v.sold} pcs</div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function toggleAccordion(header) {
+            const body = header.nextElementSibling;
+            body.classList.toggle('show');
+        }
+
+        function copyId(id) {
+            navigator.clipboard.writeText(id).then(() => {
+                alert('Product ID disalin: ' + id);
+            });
+        }
+
+        function setFilter(filter, btn) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderAccordion();
+        }
+
+        function filterData() {
+            renderAccordion();
+        }
+
+        function renderCharts(colorCount, sizeCount) {
+            // Color Chart
+            const colorCtx = document.getElementById('colorChart').getContext('2d');
+            if (charts.color) charts.color.destroy();
+            charts.color = new Chart(colorCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(colorCount),
+                    datasets: [{
+                        data: Object.values(colorCount),
+                        backgroundColor: ['#10b981', '#3b82f6', '#94a3b8', '#f59e0b', '#f43f5e', '#8b5cf6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#94a3b8' } } } }
+            });
+
+            // Size Chart
+            const sizeCtx = document.getElementById('sizeChart').getContext('2d');
+            if (charts.size) charts.size.destroy();
+            charts.size = new Chart(sizeCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(sizeCount),
+                    datasets: [{
+                        label: 'Terjual',
+                        data: Object.values(sizeCount),
+                        backgroundColor: '#6366f1'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } }, plugins: { legend: { display: false } } }
+            });
+
+            // Model Chart
+            const modelCtx = document.getElementById('modelChart').getContext('2d');
+            if (charts.model) charts.model.destroy();
+            const top5 = processedData.slice(0, 5);
+            charts.model = new Chart(modelCtx, {
+                type: 'bar',
+                data: {
+                    labels: top5.map(m => m.model.substring(0, 20) + '...'),
+                    datasets: [{
+                        label: 'Terjual',
+                        data: top5.map(m => m.totalSold),
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } }, plugins: { legend: { display: false } } }
+            });
+        }
+
+        // --- UTILS ---
+        function formatRupiah(num) {
+            return 'Rp' + num.toLocaleString('id-ID');
+        }
+
+        function resetData() {
+            rawData = [];
+            processedData = [];
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('uploadOverlay').classList.remove('hidden');
+        }
+
+        function exportCSV() {
+            let csv = 'Product ID,Model,Varian,Warna,Ukuran,GMV,Pesanan,Terjual\n';
+            rawData.forEach(r => {
+                csv += `${r.id},"${r.model}","${r.variant}",${r.color},${r.size},${r.gmv},${r.orders},${r.sold}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bedah-sku-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+    </script>
+</body>
+</html>
