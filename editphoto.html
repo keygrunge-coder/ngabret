@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Editor Foto Massal - Max 9 Foto</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#10141b;color:#fff;font-family:Arial,Helvetica,sans-serif}
+button,input,select{font:inherit}
+button{border:0;border-radius:8px;background:#292f3a;color:#fff;padding:10px 13px;cursor:pointer}
+button:hover{filter:brightness(1.12)}
+.primary{background:#7146ff}
+header{height:64px;background:#181d26;border-bottom:1px solid #303744;display:flex;align-items:center;gap:8px;padding:10px 14px;position:sticky;top:0;z-index:50}
+header h2{font-size:17px;margin:0 auto 0 0}
+.badge{background:#292f3a;padding:7px 10px;border-radius:20px;font-size:11px;color:#b9c0cb}
+.layout{display:grid;grid-template-columns:1fr 285px;min-height:calc(100vh - 64px)}
+main{padding:15px;min-width:0}
+.sidebar{background:#181d26;border-left:1px solid #303744;padding:15px}
+.upload{border:1px dashed #626b7b;border-radius:10px;padding:18px;text-align:center;color:#aab2bf;cursor:pointer;margin-bottom:14px}
+.upload:hover{background:#202630}
+#files{display:none}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card{position:relative;background:#181d26;border:1px solid #303744;border-radius:10px;padding:7px;overflow:hidden}
+.card.empty{min-height:180px;display:flex;align-items:center;justify-content:center;color:#596272;font-size:12px}
+.card .photo-wrap{position:relative;background:#fff;width:100%;overflow:hidden}
+.card canvas{display:block;width:100%;height:auto}
+.card .wm{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;line-height:1;cursor:move;user-select:none;touch-action:none;padding:4px;font-weight:500;outline:0 solid transparent}
+.card .wm.selected{outline:1px dashed #7146ff;outline-offset:5px}
+.card .num{position:absolute;left:8px;top:8px;background:#000b;padding:5px 7px;border-radius:6px;font-size:10px;z-index:5}
+.card .remove{position:absolute;right:7px;top:7px;background:#000b;padding:4px 7px;font-size:11px;z-index:6}
+.card .name{font-size:10px;color:#929baa;padding:6px 2px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.section{margin-bottom:18px}
+.title{font-size:11px;text-transform:uppercase;color:#9fa8b7;font-weight:bold;margin-bottom:9px}
+label{font-size:12px;color:#adb5c2;display:block;margin:10px 0 5px}
+input[type=text],select{width:100%;padding:9px;border-radius:8px;border:1px solid #3a4250;background:#11151c;color:#fff;outline:none}
+input[type=range]{width:100%}
+input[type=color]{width:100%;height:38px;padding:3px;border-radius:8px;border:1px solid #3a4250;background:#11151c}
+.val{float:right;background:#252b35;padding:3px 6px;border-radius:5px}
+.row{display:flex;gap:6px}.row>*{flex:1}
+.pos{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.pos button{padding:8px}
+.ratios{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.ratios button{padding:8px 4px;font-size:11px}
+.ratios button.active{background:#30245b;outline:2px solid #7146ff}
+.small{font-size:10px;color:#7f8998;line-height:1.5}
+.counter{font-size:12px;color:#9da6b5;margin:5px 0 12px}
+.actions{display:flex;gap:7px;margin-bottom:14px}.actions button{flex:1}
+@media(max-width:850px){
+ .layout{grid-template-columns:1fr}.sidebar{border-left:0;border-top:1px solid #303744}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+ header{height:auto;flex-wrap:wrap}.grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+<h2>🖼️ Editor Foto Massal</h2>
+<span class="badge">MAX 9 FOTO</span>
+<button id="pickBtn">Tambah Foto</button>
+<button id="downloadAll" class="primary">Download Semua</button>
+<input id="files" type="file" accept="image/*" multiple>
+</header>
+
+<div class="layout">
+<main>
+  <div class="upload" id="drop">
+    Klik atau seret foto ke sini<br>
+    <b>Maksimal 9 foto sekaligus</b>
+  </div>
+  <div class="counter" id="counter">0 / 9 foto</div>
+  <div class="actions">
+    <button id="applyCenter">Samakan Posisi</button>
+    <button id="clearAll">Hapus Semua</button>
+  </div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<aside class="sidebar">
+  <div class="section">
+    <div class="title">Watermark Global</div>
+
+    <label>Teks Watermark</label>
+    <input id="wmText" type="text" value="SEKAROFFICIAL" maxlength="60">
+
+    <label>Font</label>
+    <select id="font">
+      <option>Arial</option>
+      <option>Helvetica</option>
+      <option>Verdana</option>
+      <option>Tahoma</option>
+      <option>Trebuchet MS</option>
+      <option>Georgia</option>
+      <option>Times New Roman</option>
+      <option>Courier New</option>
+      <option>Impact</option>
+      <option>Comic Sans MS</option>
+    </select>
+
+    <label>Ukuran <span class="val" id="sizeVal">28px</span></label>
+    <input id="size" type="range" min="10" max="90" value="28">
+
+    <label>Opacity <span class="val" id="opacityVal">10%</span></label>
+    <input id="opacity" type="range" min="1" max="100" value="10">
+
+    <label>Warna</label>
+    <input id="color" type="color" value="#000000">
+  </div>
+
+  <div class="section">
+    <div class="title">Posisi Cepat</div>
+    <div class="pos">
+      <button data-pos="tl">↖</button><button data-pos="tc">↑</button><button data-pos="tr">↗</button>
+      <button data-pos="ml">←</button><button data-pos="mc">●</button><button data-pos="mr">→</button>
+      <button data-pos="bl">↙</button><button data-pos="bc">↓</button><button data-pos="br">↘</button>
+    </div>
+    <p class="small">Posisi cepat diterapkan ke semua foto. Setelah itu tiap watermark tetap bisa digeser sendiri.</p>
+  </div>
+
+  <div class="section">
+    <div class="title">Rasio Foto</div>
+    <div class="ratios" id="ratios">
+      <button class="active" data-r="original">Original</button>
+      <button data-r="1:1">1:1</button>
+      <button data-r="4:5">4:5</button>
+      <button data-r="9:16">9:16</button>
+      <button data-r="3:4">3:4</button>
+      <button data-r="16:9">16:9</button>
+      <button data-r="3:2">3:2</button>
+      <button data-r="2:3">2:3</button>
+      <button data-r="2:1">2:1</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="title">Penyesuaian Semua Foto</div>
+    <label>Kecerahan <span class="val" id="brightVal">100%</span></label>
+    <input id="bright" type="range" min="50" max="150" value="100">
+
+    <label>Kontras <span class="val" id="contrastVal">100%</span></label>
+    <input id="contrast" type="range" min="50" max="150" value="100">
+
+    <label>Saturasi <span class="val" id="satVal">100%</span></label>
+    <input id="sat" type="range" min="0" max="200" value="100">
+  </div>
+
+  <div class="section">
+    <div class="title">Putar Semua</div>
+    <div class="row">
+      <button id="rotL">↶ 90°</button>
+      <button id="rotR">↷ 90°</button>
+    </div>
+  </div>
+
+  <p class="small">
+    Semua proses berjalan di browser. Foto tidak dikirim ke server.
+    Default watermark dibuat kecil dengan opacity 10%.
+  </p>
+</aside>
+</div>
+
+<script>
+const MAX=9;
+const filesInput=document.getElementById('files');
+const grid=document.getElementById('grid');
+const counter=document.getElementById('counter');
+
+let items=[];
+let ratio='original';
+
+const settings={
+ text:'SEKAROFFICIAL',
+ font:'Arial',
+ size:28,
+ opacity:10,
+ color:'#000000',
+ bright:100,
+ contrast:100,
+ sat:100
+};
+
+function addFiles(list){
+  const incoming=[...list].filter(f=>f.type.startsWith('image/'));
+  for(const file of incoming){
+    if(items.length>=MAX) break;
+
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+
+    const item={
+      id:crypto.randomUUID(),
+      file,
+      url,
+      img,
+      x:.5,
+      y:.5,
+      rotation:0
+    };
+
+    img.onload=()=>{
+      items.push(item);
+      render();
+    };
+
+    img.src=url;
+  }
+}
+
+function render(){
+  grid.innerHTML='';
+
+  items.forEach((item,index)=>{
+    const card=document.createElement('div');
+    card.className='card';
+    card.dataset.id=item.id;
+
+    const wrap=document.createElement('div');
+    wrap.className='photo-wrap';
+
+    const canvas=document.createElement('canvas');
+    canvas.className='preview';
+
+    const wm=document.createElement('div');
+    wm.className='wm selected';
+    wm.textContent=settings.text;
+    wm.style.left=(item.x*100)+'%';
+    wm.style.top=(item.y*100)+'%';
+
+    const num=document.createElement('div');
+    num.className='num';
+    num.textContent=(index+1);
+
+    const remove=document.createElement('button');
+    remove.className='remove';
+    remove.textContent='×';
+    remove.onclick=()=>{
+      URL.revokeObjectURL(item.url);
+      items=items.filter(x=>x.id!==item.id);
+      render();
+    };
+
+    wrap.append(canvas,wm,num,remove);
+
+    const name=document.createElement('div');
+    name.className='name';
+    name.textContent=item.file.name;
+
+    card.append(wrap,name);
+    grid.append(card);
+
+    drawPreview(item,canvas);
+    styleWM(wm);
+
+    enableDrag(wm,item,wrap);
+  });
+
+  counter.textContent=items.length+' / 9 foto';
+}
+
+function cropInfo(item){
+  let w=item.img.naturalWidth;
+  let h=item.img.naturalHeight;
+
+  if(item.rotation%180!==0)[w,h]=[h,w];
+
+  if(ratio==='original') return {w,h};
+
+  const [a,b]=ratio.split(':').map(Number);
+  const target=a/b;
+
+  if(w/h>target){
+    w=Math.round(h*target);
+  }else{
+    h=Math.round(w/target);
+  }
+
+  return {w,h};
+}
+
+function drawPreview(item,canvas){
+  const {w,h}=cropInfo(item);
+
+  const max=900;
+  const scale=Math.min(1,max/Math.max(w,h));
+
+  canvas.width=Math.max(1,Math.round(w*scale));
+  canvas.height=Math.max(1,Math.round(h*scale));
+
+  const c=canvas.getContext('2d');
+
+  c.filter=
+    `brightness(${settings.bright}%) `+
+    `contrast(${settings.contrast}%) `+
+    `saturate(${settings.sat}%)`;
+
+  c.save();
+  c.translate(canvas.width/2,canvas.height/2);
+  c.rotate(item.rotation*Math.PI/180);
+
+  let iw=item.img.naturalWidth;
+  let ih=item.img.naturalHeight;
+
+  const scale2=Math.max(canvas.width/iw,canvas.height/ih);
+
+  const dw=iw*scale2;
+  const dh=ih*scale2;
+
+  c.drawImage(
+    item.img,
+    -dw/2,
+    -dh/2,
+    dw,
+    dh
+  );
+
+  c.restore();
+}
+
+function styleWM(wm){
+  wm.textContent=settings.text || 'SEKAROFFICIAL';
+  wm.style.fontFamily=settings.font;
+  wm.style.fontSize=settings.size+'px';
+  wm.style.opacity=settings.opacity/100;
+  wm.style.color=settings.color;
+}
+
+function enableDrag(wm,item,wrap){
+  let dragging=false;
+
+  wm.addEventListener('pointerdown',e=>{
+    dragging=true;
+    wm.classList.add('selected');
+    wm.setPointerCapture(e.pointerId);
+
+    e.preventDefault();
+  });
+
+  wm.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+
+    const rect=wrap.getBoundingClientRect();
+
+    item.x=Math.max(
+      0,
+      Math.min(
+        1,
+        (e.clientX-rect.left)/rect.width
+      )
+    );
+
+    item.y=Math.max(
+      0,
+      Math.min(
+        1,
+        (e.clientY-rect.top)/rect.height
+      )
+    );
+
+    wm.style.left=(item.x*100)+'%';
+    wm.style.top=(item.y*100)+'%';
+  });
+
+  wm.addEventListener('pointerup',()=>{
+    dragging=false;
+  });
+
+  wm.addEventListener('pointercancel',()=>{
+    dragging=false;
+  });
+}
+
+function refreshAll(){
+  document.querySelectorAll('.card').forEach(card=>{
+    const item=items.find(x=>x.id===card.dataset.id);
+    if(!item)return;
+
+    const canvas=card.querySelector('canvas');
+    const wm=card.querySelector('.wm');
+
+    drawPreview(item,canvas);
+
+    wm.style.left=(item.x*100)+'%';
+    wm.style.top=(item.y*100)+'%';
+
+    styleWM(wm);
+  });
+}
+
+/* Upload */
+document.getElementById('pickBtn').onclick=()=>filesInput.click();
+
+filesInput.onchange=e=>{
+  addFiles(e.target.files);
+  filesInput.value='';
+};
+
+const drop=document.getElementById('drop');
+
+drop.onclick=()=>filesInput.click();
+
+drop.ondragover=e=>{
+  e.preventDefault();
+  drop.style.background='#202630';
+};
+
+drop.ondragleave=()=>{
+  drop.style.background='';
+};
+
+drop.ondrop=e=>{
+  e.preventDefault();
+  drop.style.background='';
+  addFiles(e.dataTransfer.files);
+};
+
+/* Global watermark */
+wmText.oninput=()=>{
+  settings.text=wmText.value;
+  refreshAll();
+};
+
+font.onchange=()=>{
+  settings.font=font.value;
+  refreshAll();
+};
+
+size.oninput=()=>{
+  settings.size=Number(size.value);
+  sizeVal.textContent=settings.size+'px';
+  refreshAll();
+};
+
+opacity.oninput=()=>{
+  settings.opacity=Number(opacity.value);
+  opacityVal.textContent=settings.opacity+'%';
+  refreshAll();
+};
+
+color.oninput=()=>{
+  settings.color=color.value;
+  refreshAll();
+};
+
+/* Adjustments */
+bright.oninput=()=>{
+  settings.bright=Number(bright.value);
+  brightVal.textContent=settings.bright+'%';
+  refreshAll();
+};
+
+contrast.oninput=()=>{
+  settings.contrast=Number(contrast.value);
+  contrastVal.textContent=settings.contrast+'%';
+  refreshAll();
+};
+
+sat.oninput=()=>{
+  settings.sat=Number(sat.value);
+  satVal.textContent=settings.sat+'%';
+  refreshAll();
+};
+
+/* Ratio */
+document.querySelectorAll('#ratios button').forEach(btn=>{
+  btn.onclick=()=>{
+    ratio=btn.dataset.r;
+
+    document.querySelectorAll('#ratios button')
+      .forEach(x=>x.classList.remove('active'));
+
+    btn.classList.add('active');
+
+    refreshAll();
+  };
+});
+
+/* Posisi */
+function positionAll(pos){
+  let x=.5,y=.5;
+
+  if(pos.includes('l'))x=.12;
+  if(pos.includes('r'))x=.88;
+
+  if(pos.includes('t'))y=.12;
+  if(pos.includes('b'))y=.88;
+
+  items.forEach(item=>{
+    item.x=x;
+    item.y=y;
+  });
+
+  refreshAll();
+}
+
+document.querySelectorAll('[data-pos]').forEach(btn=>{
+  btn.onclick=()=>positionAll(btn.dataset.pos);
+});
+
+/* Samakan posisi dari foto pertama */
+document.getElementById('applyCenter').onclick=()=>{
+  if(!items.length)return;
+
+  const x=items[0].x;
+  const y=items[0].y;
+
+  items.forEach(item=>{
+    item.x=x;
+    item.y=y;
+  });
+
+  refreshAll();
+};
+
+/* Rotate */
+document.getElementById('rotL').onclick=()=>{
+  items.forEach(item=>{
+    item.rotation=(item.rotation+270)%360;
+  });
+  refreshAll();
+};
+
+document.getElementById('rotR').onclick=()=>{
+  items.forEach(item=>{
+    item.rotation=(item.rotation+90)%360;
+  });
+  refreshAll();
+};
+
+/* Clear */
+document.getElementById('clearAll').onclick=()=>{
+  items.forEach(x=>URL.revokeObjectURL(x.url));
+  items=[];
+  render();
+};
+
+/* Export satu foto */
+function makeExport(item){
+  const {w,h}=cropInfo(item);
+
+  const max=2500;
+  const scale=Math.min(1,max/Math.max(w,h));
+
+  const out=document.createElement('canvas');
+
+  out.width=Math.round(w*scale);
+  out.height=Math.round(h*scale);
+
+  const c=out.getContext('2d');
+
+  c.filter=
+    `brightness(${settings.bright}%) `+
+    `contrast(${settings.contrast}%) `+
+    `saturate(${settings.sat}%)`;
+
+  c.save();
+
+  c.translate(out.width/2,out.height/2);
+  c.rotate(item.rotation*Math.PI/180);
+
+  const iw=item.img.naturalWidth;
+  const ih=item.img.naturalHeight;
+
+  const sc=Math.max(out.width/iw,out.height/ih);
+
+  c.drawImage(
+    item.img,
+    -iw*sc/2,
+    -ih*sc/2,
+    iw*sc,
+    ih*sc
+  );
+
+  c.restore();
+
+  /* Watermark */
+  c.save();
+
+  c.globalAlpha=settings.opacity/100;
+  c.fillStyle=settings.color;
+
+  const fontScale=out.width/Math.max(1,document.querySelector('.photo-wrap')?.getBoundingClientRect().width||out.width);
+
+  const fontSize=Math.max(10,settings.size*fontScale);
+
+  c.font=`500 ${fontSize}px "${settings.font}"`;
+  c.textAlign='center';
+  c.textBaseline='middle';
+
+  c.fillText(
+    settings.text || 'SEKAROFFICIAL',
+    item.x*out.width,
+    item.y*out.height
+  );
+
+  c.restore();
+
+  return out;
+}
+
+/* Download semua */
+document.getElementById('downloadAll').onclick=async()=>{
+  if(!items.length){
+    alert('Masukkan foto dulu. Maksimal 9 foto.');
+    return;
+  }
+
+  const button=document.getElementById('downloadAll');
+  button.disabled=true;
+  button.textContent='Memproses...';
+
+  for(let i=0;i<items.length;i++){
+    const item=items[i];
+    const out=makeExport(item);
+
+    const blob=await new Promise(resolve=>
+      out.toBlob(resolve,'image/jpeg',.95)
+    );
+
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+
+    const original=item.file.name.replace(/\.[^.]+$/,'');
+    a.download=original+'_WM.jpg';
+    a.href=url;
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+
+    await new Promise(r=>setTimeout(r,250));
+  }
+
+  button.disabled=false;
+  button.textContent='Download Semua';
+};
+
+/* initial */
+render();
+</script>
+</body>
+</html>
