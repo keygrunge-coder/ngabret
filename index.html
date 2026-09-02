@@ -64,6 +64,23 @@
     </footer>
 
     <script>
+
+  // Penangkap redirect 404 untuk GitHub Pages PWA
+  (function() {
+    const segments = window.location.search.slice(1).split('&');
+    for (let i = 0; i < segments.length; i++) {
+      if (segments[i].startsWith('p=/')) {
+        const route = decodeURIComponent(segments[i].slice(3));
+        window.history.replaceState(null, null,
+          window.location.pathname.slice(0, -1) + route + window.location.hash
+        );
+        break;
+      }
+    }
+  })();
+
+
+    
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
