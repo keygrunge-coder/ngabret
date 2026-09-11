@@ -241,6 +241,17 @@
         .file-input { display: none; }
         
         .hidden { display: none !important; }
+
+        .error-box {
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.85em;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
@@ -252,6 +263,7 @@
             <p>Upload file export SKU TikTok Seller Center (.xlsx) untuk memulai analisis.</p>
             <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Pilih File Excel</button>
             <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" onchange="handleFile(this)">
+            <div id="errorBox" class="error-box hidden"></div>
         </div>
     </div>
 
@@ -293,8 +305,8 @@
         <!-- PERFORMANCE CARDS -->
         <div class="perf-grid">
             <div class="perf-card top">
-                <div class="perf-title"> TOP PERFORMER</div>
-                <div class="perf-desc" id="perfTop">0 Model (>100 pcs)</div>
+                <div class="perf-title">🏆 TOP PERFORMER</div>
+                <div class="perf-desc" id="perfTop">0 Model (&gt;100 pcs)</div>
             </div>
             <div class="perf-card medium">
                 <div class="perf-title">⚡ MEDIUM</div>
@@ -302,11 +314,11 @@
             </div>
             <div class="perf-card low">
                 <div class="perf-title">📉 LOW</div>
-                <div class="perf-desc" id="perfLow">0 Model (<20 pcs)</div>
+                <div class="perf-desc" id="perfLow">0 Model (&lt;20 pcs)</div>
             </div>
             <div class="perf-card new">
-                <div class="perf-title"> NEW PRODUCT</div>
-                <div class="perf-desc" id="perfNew">0 Model (Rasio tinggi)</div>
+                <div class="perf-title">🆕 TOTAL MODEL</div>
+                <div class="perf-desc" id="perfNew">0 Model</div>
             </div>
         </div>
 
@@ -363,34 +375,53 @@
         function handleFile(input) {
             const file = input.files[0];
             if (!file) return;
-            
+
+            const errorBox = document.getElementById('errorBox');
+            errorBox.classList.add('hidden');
+            errorBox.textContent = '';
+
             const reader = new FileReader();
             reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
-                
-                parseData(jsonData);
-                document.getElementById('uploadOverlay').classList.add('hidden');
-                document.getElementById('dashboard').style.display = 'block';
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+
+                    parseData(jsonData);
+
+                    if (rawData.length === 0) {
+                        throw new Error('Tidak ada baris data valid yang terbaca dari file ini. Cek format kolom export-nya.');
+                    }
+
+                    document.getElementById('uploadOverlay').classList.add('hidden');
+                    document.getElementById('dashboard').style.display = 'block';
+                } catch (err) {
+                    errorBox.textContent = '⚠️ Gagal memuat file: ' + err.message;
+                    errorBox.classList.remove('hidden');
+                    console.error(err);
+                }
             };
             reader.readAsArrayBuffer(file);
         }
 
         function parseData(jsonData) {
             rawData = [];
-            // Skip header rows (usually first 2-3 rows in TikTok export)
+            // Baris 0: rentang tanggal, baris 1: kosong, baris 2: header kolom.
+            // Data asli dimulai baris index 3, tapi kita mulai dari 2 dan biarkan
+            // pengecekan ":" pada nama produk otomatis melewati baris header.
             for (let i = 2; i < jsonData.length; i++) {
                 const row = jsonData[i];
-                if (row && row.length >= 7 && row[2]) {
-                    const productName = row[2];
+                // Export TikTok Seller Center punya 6 kolom:
+                // 0 SKU ID, 1 Product ID, 2 Produk, 3 GMV, 4 Pesanan SKU, 5 Produk terjual
+                if (row && row.length >= 6 && row[2]) {
+                    const productName = String(row[2]);
                     const parts = productName.split(':');
                     if (parts.length >= 2) {
                         const model = parts[0].trim();
-                        const variantStr = parts[1].trim();
+                        const variantStr = parts.slice(1).join(':').trim();
                         const variantParts = variantStr.split('/').map(s => s.trim());
-                        
+
                         rawData.push({
                             skuId: row[0],
                             productId: row[1],
@@ -398,9 +429,9 @@
                             variant: variantStr,
                             color: variantParts[0] || 'Lainnya',
                             size: variantParts[variantParts.length - 1] || 'Lainnya',
-                            gmv: parseCurrency(row[4]),
-                            orders: parseInt(row[5]) || 0,
-                            sold: parseInt(row[6]) || 0
+                            gmv: parseCurrency(row[3]),
+                            orders: parseInt(row[4]) || 0,
+                            sold: parseInt(row[5]) || 0
                         });
                     }
                 }
@@ -466,13 +497,19 @@
             document.getElementById('perfNew').textContent = `${processedData.length} Total Model`;
 
             // Highlight
-            const topColor = Object.entries(colorCount).sort((a,b) => b[1]-a[1])[0];
-            const topSize = Object.entries(sizeCount).sort((a,b) => b[1]-a[1])[0];
-            document.getElementById('highlightText').innerHTML = `
-                Warna paling laku: <strong style="color:var(--success)">${topColor[0].toUpperCase()}</strong> (${topColor[1]} pcs).<br>
-                Ukuran paling dicari: <strong style="color:var(--success)">${topSize[0]}</strong> (${topSize[1]} pcs).<br>
-                Rekomendasi: Fokus restock warna ${topColor[0]} ukuran ${topSize[0]}.
-            `;
+            const colorEntries = Object.entries(colorCount).sort((a,b) => b[1]-a[1]);
+            const sizeEntries = Object.entries(sizeCount).sort((a,b) => b[1]-a[1]);
+            if (colorEntries.length && sizeEntries.length) {
+                const topColor = colorEntries[0];
+                const topSize = sizeEntries[0];
+                document.getElementById('highlightText').innerHTML = `
+                    Warna paling laku: <strong style="color:var(--success)">${topColor[0].toUpperCase()}</strong> (${topColor[1]} pcs).<br>
+                    Ukuran paling dicari: <strong style="color:var(--success)">${topSize[0]}</strong> (${topSize[1]} pcs).<br>
+                    Rekomendasi: Fokus restock warna ${topColor[0]} ukuran ${topSize[0]}.
+                `;
+            } else {
+                document.getElementById('highlightText').textContent = 'Data tidak cukup untuk insight warna/ukuran.';
+            }
 
             renderAccordion();
             renderCharts(colorCount, sizeCount);
@@ -495,7 +532,7 @@
                 const div = document.createElement('div');
                 div.innerHTML = `
                     <div class="accordion-header" onclick="toggleAccordion(this)">
-                        <button class="copy-icon" onclick="event.stopPropagation(); copyId('${model.id}')">📋 ${model.id.slice(-6)}</button>
+                        <button class="copy-icon" onclick="event.stopPropagation(); copyId('${model.id}')">📋 ${String(model.id).slice(-6)}</button>
                         <div class="model-info">
                             <div class="model-name" title="${model.model}">${model.model}</div>
                             <div class="model-stats">${model.variants.length} varian · ${model.totalOrders} pesanan</div>
@@ -610,7 +647,7 @@
         function exportCSV() {
             let csv = 'Product ID,Model,Varian,Warna,Ukuran,GMV,Pesanan,Terjual\n';
             rawData.forEach(r => {
-                csv += `${r.id},"${r.model}","${r.variant}",${r.color},${r.size},${r.gmv},${r.orders},${r.sold}\n`;
+                csv += `${r.productId},"${r.model}","${r.variant}",${r.color},${r.size},${r.gmv},${r.orders},${r.sold}\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
