@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Size Chart Generator</title>
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f3f4f6;
+    color:#171717;
+  }
+  .app{
+    max-width:1180px;
+    margin:0 auto;
+    padding:28px 20px 40px;
+  }
+  h1{margin:0 0 7px;font-size:26px}
+  .sub{margin:0 0 22px;color:#666;font-size:14px}
+  .grid{
+    display:grid;
+    grid-template-columns:360px 1fr;
+    gap:22px;
+    align-items:start;
+  }
+  .panel,.preview-panel{
+    background:#fff;
+    border:1px solid #ddd;
+    border-radius:14px;
+    box-shadow:0 5px 18px rgba(0,0,0,.05);
+  }
+  .panel{padding:20px}
+  .preview-panel{padding:18px}
+  label{
+    display:block;
+    font-size:13px;
+    font-weight:700;
+    margin:0 0 7px;
+  }
+  input,textarea,button{
+    font:inherit;
+  }
+  input[type=text],input[type=number],textarea{
+    width:100%;
+    border:1px solid #d5d5d5;
+    border-radius:8px;
+    padding:10px 11px;
+    outline:none;
+    background:#fff;
+  }
+  input:focus,textarea:focus{border-color:#777}
+  .field{margin-bottom:15px}
+  textarea{resize:vertical;min-height:88px}
+  .sizes-head{
+    display:grid;
+    grid-template-columns:1fr 1fr 36px;
+    gap:7px;
+    margin-bottom:6px;
+  }
+  .sizes-head div{
+    font-size:12px;
+    font-weight:700;
+    color:#666;
+  }
+  .size-row{
+    display:grid;
+    grid-template-columns:1fr 1fr 36px;
+    gap:7px;
+    margin-bottom:7px;
+  }
+  .size-row button{
+    border:0;
+    background:#eee;
+    border-radius:7px;
+    cursor:pointer;
+    font-size:17px;
+  }
+  .size-row button:hover{background:#ddd}
+  .add{
+    width:100%;
+    border:1px dashed #aaa;
+    background:#fafafa;
+    border-radius:8px;
+    padding:9px;
+    cursor:pointer;
+    margin:4px 0 17px;
+  }
+  .actions{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .primary,.secondary{
+    border:0;
+    border-radius:9px;
+    padding:11px 15px;
+    cursor:pointer;
+    font-weight:700;
+  }
+  .primary{background:#171717;color:#fff;flex:1}
+  .secondary{background:#eee;color:#222}
+  .canvas-wrap{
+    background:#e9eaec;
+    border-radius:10px;
+    padding:16px;
+    overflow:auto;
+    text-align:center;
+  }
+  canvas{
+    display:block;
+    width:min(100%,700px);
+    height:auto;
+    margin:0 auto;
+    background:#fff;
+    box-shadow:0 3px 15px rgba(0,0,0,.12);
+  }
+  .hint{
+    font-size:12px;
+    color:#777;
+    margin-top:10px;
+    line-height:1.5;
+  }
+  @media(max-width:850px){
+    .grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Size Chart Generator</h1>
+  <p class="sub">Isi data ukuran produk, lalu download size chart dalam format PNG.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="field">
+        <label for="store">Nama Toko / Brand</label>
+        <input id="store" type="text" value="SEKAROFFICIAL" placeholder="Contoh: SEKAROFFICIAL">
+      </div>
+
+      <div class="field">
+        <label>Ukuran & Panjang Insole</label>
+        <div class="sizes-head">
+          <div>Size</div>
+          <div>Insole (cm)</div>
+          <div></div>
+        </div>
+        <div id="rows"></div>
+        <button class="add" id="addBtn" type="button">+ Tambah Ukuran</button>
+      </div>
+
+      <div class="field">
+        <label for="notes">Catatan / Panduan</label>
+        <textarea id="notes">• Ukur panjang telapak kaki dari ujung tumit sampai ujung jari terpanjang.
+• Pilih ukuran berdasarkan panjang insole yang paling sesuai.
+• Disarankan memberi ruang sekitar 0,5–1 cm agar tetap nyaman digunakan.
+• Ukuran dapat berbeda sedikit karena proses produksi.</textarea>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="downloadBtn" type="button">Download PNG</button>
+        <button class="secondary" id="resetBtn" type="button">Reset</button>
+      </div>
+
+      <div class="hint">
+        Gambar default dibuat dalam resolusi 2000 × 2000 px agar tetap tajam saat digunakan sebagai foto produk.
+      </div>
+    </section>
+
+    <section class="preview-panel">
+      <div class="canvas-wrap">
+        <canvas id="canvas" width="2000" height="2000"></canvas>
+      </div>
+      <div class="hint">Preview di atas adalah hasil gambar yang akan didownload.</div>
+    </section>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const rows = document.getElementById('rows');
+const store = document.getElementById('store');
+const notes = document.getElementById('notes');
+
+const defaults = [
+  ['24-25','16.0'],
+  ['26-27','17.0'],
+  ['28-29','18.0'],
+  ['30-31','19.0'],
+  ['32-33','20.0'],
+  ['34-35','21.0']
+];
+
+function addRow(size='', insole=''){
+  const row = document.createElement('div');
+  row.className = 'size-row';
+  row.innerHTML = `
+    <input class="size" type="text" value="${escapeAttr(size)}" placeholder="24-25">
+    <input class="insole" type="number" step="0.1" value="${escapeAttr(insole)}" placeholder="16.0">
+    <button type="button" title="Hapus">×</button>
+  `;
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', draw));
+  row.querySelector('button').addEventListener('click', () => {
+    row.remove();
+    draw();
+  });
+  rows.appendChild(row);
+  draw();
+}
+
+function escapeAttr(v){
+  return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+defaults.forEach(x => addRow(x[0],x[1]));
+
+document.getElementById('addBtn').addEventListener('click', () => addRow());
+store.addEventListener('input', draw);
+notes.addEventListener('input', draw);
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  store.value = 'SEKAROFFICIAL';
+  notes.value = `• Ukur panjang telapak kaki dari ujung tumit sampai ujung jari terpanjang.
+• Pilih ukuran berdasarkan panjang insole yang paling sesuai.
+• Disarankan memberi ruang sekitar 0,5–1 cm agar tetap nyaman digunakan.
+• Ukuran dapat berbeda sedikit karena proses produksi.`;
+  rows.innerHTML = '';
+  defaults.forEach(x => addRow(x[0],x[1]));
+  draw();
+});
+
+function getData(){
+  return [...document.querySelectorAll('.size-row')].map(row => ({
+    size: row.querySelector('.size').value.trim(),
+    insole: row.querySelector('.insole').value.trim()
+  })).filter(x => x.size || x.insole);
+}
+
+function roundRect(c,x,y,w,h,r,fill,stroke){
+  c.beginPath();
+  c.moveTo(x+r,y);
+  c.arcTo(x+w,y,x+w,y+h,r);
+  c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r);
+  c.arcTo(x,y,x+w,y,r);
+  c.closePath();
+  if(fill){c.fillStyle=fill;c.fill()}
+  if(stroke){c.strokeStyle=stroke;c.stroke()}
+}
+
+function wrapText(text, maxWidth, font){
+  ctx.font = font;
+  const words = text.split(/\s+/);
+  const lines=[];
+  let line='';
+  for(const word of words){
+    const test = line ? line+' '+word : word;
+    if(ctx.measureText(test).width > maxWidth && line){
+      lines.push(line);
+      line=word;
+    }else line=test;
+  }
+  if(line) lines.push(line);
+  return lines;
+}
+
+function draw(){
+  const W=2000,H=2000;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,W,H);
+
+  const margin=150;
+  const brand=(store.value.trim() || 'NAMA TOKO').toUpperCase();
+  const data=getData();
+
+  // Header
+  ctx.fillStyle='#171717';
+  ctx.textAlign='center';
+  ctx.font='700 82px Arial';
+  ctx.fillText('SIZE CHART',W/2,205);
+
+  ctx.fillStyle='#555';
+  ctx.font='600 42px Arial';
+  ctx.fillText(brand,W/2,280);
+
+  // divider
+  ctx.strokeStyle='#171717';
+  ctx.lineWidth=5;
+  ctx.beginPath();
+  ctx.moveTo(margin,345);
+  ctx.lineTo(W-margin,345);
+  ctx.stroke();
+
+  // Intro
+  ctx.fillStyle='#555';
+  ctx.font='36px Arial';
+  ctx.fillText('Panduan ukuran berdasarkan panjang insole',W/2,415);
+
+  // Table
+  const tableX=margin;
+  const tableY=485;
+  const tableW=W-margin*2;
+  const headerH=105;
+  const rowH=112;
+  const col1=tableW*0.50;
+  const col2=tableW-col1;
+
+  roundRect(ctx,tableX,tableY,tableW,headerH+rowH*Math.max(data.length,1),16,'#f4f4f4',null);
+
+  ctx.fillStyle='#171717';
+  ctx.beginPath();
+  ctx.roundRect(tableX,tableY,tableW,headerH,16);
+  ctx.fill();
+
+  // cover bottom corners of header for clean table
+  ctx.fillRect(tableX,tableY+headerH-16,tableW,16);
+
+  ctx.fillStyle='#fff';
+  ctx.font='700 39px Arial';
+  ctx.textAlign='center';
+  ctx.fillText('SIZE',tableX+col1/2,tableY+67);
+  ctx.fillText('PANJANG INSOLE',tableX+col1+col2/2,tableY+67);
+
+  ctx.textAlign='center';
+  data.forEach((d,i)=>{
+    const y=tableY+headerH+i*rowH;
+    ctx.fillStyle=(i%2===0)?'#fff':'#f7f7f7';
+    ctx.fillRect(tableX,y,tableW,rowH);
+
+    ctx.fillStyle='#222';
+    ctx.font='700 42px Arial';
+    ctx.fillText(d.size || '-',tableX+col1/2,y+70);
+
+    ctx.font='600 42px Arial';
+    ctx.fillText(d.insole ? d.insole+' cm' : '-',tableX+col1+col2/2,y+70);
+
+    ctx.strokeStyle='#d8d8d8';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(tableX,y+rowH);
+    ctx.lineTo(tableX+tableW,y+rowH);
+    ctx.stroke();
+  });
+
+  // vertical line
+  const bottom=tableY+headerH+rowH*Math.max(data.length,1);
+  ctx.strokeStyle='#d0d0d0';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(tableX+col1,tableY);
+  ctx.lineTo(tableX+col1,bottom);
+  ctx.stroke();
+
+  // Notes section
+  const notesY=bottom+105;
+  ctx.textAlign='left';
+  ctx.fillStyle='#171717';
+  ctx.font='700 45px Arial';
+  ctx.fillText('PANDUAN & CATATAN',margin,notesY);
+
+  const rawNotes=notes.value.trim();
+  const noteLines=[];
+  rawNotes.split(/\n+/).forEach(line=>{
+    if(!line.trim()) return;
+    const clean=line.trim();
+    const wrapped=wrapText(clean,tableW-30,'34px Arial');
+    noteLines.push(...wrapped);
+  });
+
+  let y=notesY+72;
+  ctx.font='34px Arial';
+  ctx.fillStyle='#444';
+  noteLines.forEach(line=>{
+    ctx.fillText(line,margin,y);
+    y+=50;
+  });
+
+  // footer
+  ctx.textAlign='center';
+  ctx.fillStyle='#888';
+  ctx.font='28px Arial';
+  ctx.fillText('Pastikan mengukur kaki sebelum memilih ukuran.',W/2,H-85);
+}
+
+document.getElementById('downloadBtn').addEventListener('click',()=>{
+  draw();
+  const brand=(store.value.trim() || 'size-chart')
+    .replace(/[^a-z0-9-_]+/gi,'-')
+    .replace(/^-+|-+$/g,'')
+    .toLowerCase();
+  const a=document.createElement('a');
+  a.download=`size-chart-${brand || 'produk'}.png`;
+  a.href=canvas.toDataURL('image/png');
+  a.click();
+});
+
+draw();
+</script>
+</body>
+</html>

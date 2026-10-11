@@ -162,6 +162,9 @@ input[type=color]{width:100%;height:38px;padding:3px;border-radius:8px;border:1p
 
 <script>
 const MAX=9;
+const EXPORT_MAX=4096;      // sisi terpanjang hasil download (px). Ganti Infinity untuk ukuran asli
+const JPEG_QUALITY=.98;     // kualitas JPEG hasil download
+
 const filesInput=document.getElementById('files');
 const grid=document.getElementById('grid');
 const counter=document.getElementById('counter');
@@ -199,6 +202,10 @@ function addFiles(list){
     };
 
     img.onload=()=>{
+      if(items.length>=MAX){
+        URL.revokeObjectURL(url);
+        return;
+      }
       items.push(item);
       render();
     };
@@ -289,6 +296,9 @@ function drawPreview(item,canvas){
 
   const c=canvas.getContext('2d');
 
+  c.imageSmoothingEnabled=true;
+  c.imageSmoothingQuality='high';
+
   c.filter=
     `brightness(${settings.bright}%) `+
     `contrast(${settings.contrast}%) `+
@@ -301,7 +311,12 @@ function drawPreview(item,canvas){
   let iw=item.img.naturalWidth;
   let ih=item.img.naturalHeight;
 
-  const scale2=Math.max(canvas.width/iw,canvas.height/ih);
+  // Saat diputar 90/270 derajat, lebar/tinggi kanvas ditukar agar tetap menutup penuh
+  const rotated=item.rotation%180!==0;
+  const tw=rotated?canvas.height:canvas.width;
+  const th=rotated?canvas.width:canvas.height;
+
+  const scale2=Math.max(tw/iw,th/ih);
 
   const dw=iw*scale2;
   const dh=ih*scale2;
@@ -534,19 +549,21 @@ document.getElementById('clearAll').onclick=()=>{
   render();
 };
 
-/* Export satu foto */
+/* Export satu foto (kualitas tinggi) */
 function makeExport(item){
   const {w,h}=cropInfo(item);
 
-  const max=2500;
-  const scale=Math.min(1,max/Math.max(w,h));
+  const scale=Math.min(1,EXPORT_MAX/Math.max(w,h));
 
   const out=document.createElement('canvas');
-
-  out.width=Math.round(w*scale);
-  out.height=Math.round(h*scale);
+  out.width=Math.max(1,Math.round(w*scale));
+  out.height=Math.max(1,Math.round(h*scale));
 
   const c=out.getContext('2d');
+
+  // Resize halus berkualitas tinggi
+  c.imageSmoothingEnabled=true;
+  c.imageSmoothingQuality='high';
 
   c.filter=
     `brightness(${settings.bright}%) `+
@@ -554,45 +571,39 @@ function makeExport(item){
     `saturate(${settings.sat}%)`;
 
   c.save();
-
   c.translate(out.width/2,out.height/2);
   c.rotate(item.rotation*Math.PI/180);
 
   const iw=item.img.naturalWidth;
   const ih=item.img.naturalHeight;
 
-  const sc=Math.max(out.width/iw,out.height/ih);
+  const rotated=item.rotation%180!==0;
+  const tw=rotated?out.height:out.width;
+  const th=rotated?out.width:out.height;
 
-  c.drawImage(
-    item.img,
-    -iw*sc/2,
-    -ih*sc/2,
-    iw*sc,
-    ih*sc
-  );
+  const sc=Math.max(tw/iw,th/ih);
 
+  c.drawImage(item.img,-iw*sc/2,-ih*sc/2,iw*sc,ih*sc);
   c.restore();
 
-  /* Watermark */
+  // Watermark: skala dihitung dari lebar preview foto INI sendiri
   c.save();
-
+  c.filter='none';
   c.globalAlpha=settings.opacity/100;
   c.fillStyle=settings.color;
 
-  const fontScale=out.width/Math.max(1,document.querySelector('.photo-wrap')?.getBoundingClientRect().width||out.width);
-
-  const fontSize=Math.max(10,settings.size*fontScale);
+  const wrap=document.querySelector(`.card[data-id="${item.id}"] .photo-wrap`);
+  const previewW=wrap?wrap.getBoundingClientRect().width:out.width;
+  const fontSize=Math.max(10,settings.size*(out.width/Math.max(1,previewW)));
 
   c.font=`500 ${fontSize}px "${settings.font}"`;
   c.textAlign='center';
   c.textBaseline='middle';
-
   c.fillText(
     settings.text || 'SEKAROFFICIAL',
     item.x*out.width,
     item.y*out.height
   );
-
   c.restore();
 
   return out;
@@ -614,8 +625,10 @@ document.getElementById('downloadAll').onclick=async()=>{
     const out=makeExport(item);
 
     const blob=await new Promise(resolve=>
-      out.toBlob(resolve,'image/jpeg',.95)
+      out.toBlob(resolve,'image/jpeg',JPEG_QUALITY)
     );
+
+    if(!blob) continue;
 
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
