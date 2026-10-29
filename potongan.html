@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kalkulator Potongan</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#f4f5f7;padding:15px;color:#222}
+main{max-width:500px;margin:auto}
+.card{background:white;padding:16px;border-radius:14px;margin-bottom:12px}
+label{display:block;font-size:14px;margin-bottom:8px}
+input{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px}
+.head,.item{display:grid;grid-template-columns:1fr 70px 30px;gap:7px;align-items:center}
+.head{font-size:12px;color:#777;padding-bottom:8px}
+.item{padding:8px 0;border-top:1px solid #eee}
+.pct{text-align:right;color:#2563eb;font-weight:bold;font-size:14px}
+button{border:0;border-radius:8px;padding:12px;cursor:pointer}
+.add{background:#2563eb;color:white;margin-top:10px}
+.reset{background:#eee;margin-top:10px}
+.del{background:#eee;font-size:18px}
+.total{background:#eff6ff;border-radius:10px;padding:12px}
+.line{display:flex;justify-content:space-between;gap:10px;padding:8px 0}
+.big{font-size:24px;font-weight:bold;color:#2563eb}
+</style>
+</head>
+<body>
+<main>
+<div class="card">
+<label>Harga jual (Rp)</label>
+<input id="harga" type="number" value="30000" min="0">
+</div>
+
+<div class="card">
+<div class="head">
+<span>Potongan (Rp)</span>
+<span style="text-align:right">Persen</span>
+<span></span>
+</div>
+<div id="daftar"></div>
+<button class="add" onclick="tambah()">+ Tambah potongan</button>
+<button class="reset" onclick="reset()">Reset</button>
+</div>
+
+<div class="card">
+<div class="total">
+<div class="line">
+<span>Total potongan</span>
+<strong id="totalRp">Rp4.500</strong>
+</div>
+<div class="line">
+<span>Total persentase</span>
+<strong class="big" id="totalPct">15%</strong>
+</div>
+<div class="line">
+<span>Sisa</span>
+<strong id="sisa">Rp25.500</strong>
+</div>
+</div>
+</div>
+</main>
+
+<script>
+const harga=document.getElementById('harga');
+const daftar=document.getElementById('daftar');
+
+function rupiah(n){
+ return 'Rp'+n.toLocaleString('id-ID');
+}
+
+function persen(n){
+ return n.toLocaleString('id-ID',{
+  maximumFractionDigits:4
+ })+'%';
+}
+
+function tambah(nilai=''){
+ const baris=document.createElement('div');
+ baris.className='item';
+
+ const input=document.createElement('input');
+ input.type='number';
+ input.min='0';
+ input.inputMode='decimal';
+ input.value=nilai;
+ input.setAttribute('aria-label','Potongan');
+
+ const hasil=document.createElement('div');
+ hasil.className='pct';
+ hasil.textContent='—';
+
+ const hapus=document.createElement('button');
+ hapus.className='del';
+ hapus.textContent='×';
+
+ input.addEventListener('input',hitung);
+
+ hapus.onclick=()=>{
+  if(daftar.children.length>1){
+   baris.remove();
+  }else{
+   input.value='';
+  }
+  hitung();
+ };
+
+ baris.append(input,hasil,hapus);
+ daftar.appendChild(baris);
+ hitung();
+}
+
+function hitung(){
+ const h=Number(harga.value)||0;
+ let total=0;
+
+ [...daftar.children].forEach(baris=>{
+  const input=baris.querySelector('input');
+  const hasil=baris.querySelector('.pct');
+  const n=Number(input.value)||0;
+
+  total+=n;
+  hasil.textContent=
+   input.value!==''&&h>0?persen(n/h*100):'—';
+ });
+
+ document.getElementById('totalRp').textContent=rupiah(total);
+ document.getElementById('totalPct').textContent=
+  h>0?persen(total/h*100):'—';
+ document.getElementById('sisa').textContent=rupiah(h-total);
+}
+
+function reset(){
+ harga.value=30000;
+ daftar.innerHTML='';
+ tambah('1500');
+ tambah('3000');
+}
+
+harga.addEventListener('input',hitung);
+tambah('1500');
+tambah('3000');
+</script>
+</body>
+</html>
